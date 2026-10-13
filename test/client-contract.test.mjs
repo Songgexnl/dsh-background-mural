@@ -106,12 +106,22 @@ test("the repainted surfaces are the shell's own tokens", () => {
   assert.match(clientSource, /mixColor\(panel, solidTarget, 0\.25\)/);
 });
 
-test("an unsupported runtime stops the renderer before it paints", () => {
-  // The guard has to run before renderer.start(); otherwise the tokens are
-  // already repainted by the time the verdict arrives.
+test("the layers mount before the async runtime verdict", () => {
+  // The wallpaper must not depend on an awaited round trip: a misplaced await
+  // here once left the layer unmounted behind a healthy-looking settings panel.
+  // The verdict may only *take the layer back down*, via halt().
+  const start = clientSource.indexOf("renderer.start();");
   const guard = clientSource.indexOf("body.runtime.supported === false");
-  assert.notEqual(guard, -1, "the runtime verdict must gate the renderer");
-  const start = clientSource.indexOf("renderer.start();", guard);
-  assert.ok(start > guard, "renderer.start() must come after the runtime check");
-  assert.match(clientSource, /dshMuralUnsupported/);
+  assert.notEqual(start, -1, "apply() must start the renderer");
+  assert.notEqual(guard, -1, "the runtime verdict must still be checked");
+  assert.ok(guard > start, "renderer.start() must come before the runtime verdict");
+  assert.match(clientSource, /renderer\.halt\(\)/);
+});
+
+test("the panel can report the live layer state", () => {
+  // A "nothing shows up" report has to be diagnosable from the page itself.
+  assert.match(clientSource, /publishStatus\(\)/);
+  assert.match(clientSource, /layerMounted/);
+  assert.match(clientSource, /surfacesPainted/);
+  assert.match(clientSource, /--dsw-alias-bg-base/);
 });

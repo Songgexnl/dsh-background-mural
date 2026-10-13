@@ -58,3 +58,31 @@ test("the host half exports the cordis plugin surface", () => {
   assert.match(hostSource, /export function apply\(ctx\)/);
   assert.match(hostSource, /background:transparent/);
 });
+
+test("INSTALLED_VERSION tracks the package version", () => {
+  // The panel shows this and the update check compares against it. Forgetting to
+  // bump it makes a genuinely newer release report as "up to date", which is the
+  // exact failure this plugin already shipped once.
+  const declared = /const INSTALLED_VERSION = "([^"]+)"/.exec(clientSource);
+  assert.notEqual(declared, null, "client.js must declare INSTALLED_VERSION");
+  assert.equal(declared[1], manifest.version, "INSTALLED_VERSION must equal package.json version");
+});
+
+test("the update check reads the public manifest and never fakes an install", () => {
+  assert.match(clientSource, /raw\.githubusercontent\.com\/Songgexnl\/dsh-background-mural\/main\/package\.json/);
+  // It must hand the user the command rather than claim to reinstall by itself.
+  assert.match(clientSource, /dsh plugin --profile desktop add github:Songgexnl\/dsh-background-mural/);
+});
+
+test("no blanket -webkit-app-region:no-drag on the shell root", () => {
+  // Setting no-drag on body inherits into the shell's titlebar drag region and
+  // makes the whole window undraggable. It must never come back.
+  assert.doesNotMatch(clientSource, /--dsw-alias-bg-base:transparent;-webkit-app-region/);
+});
+
+test("compareVersions compares per segment, not as a string", () => {
+  // A string compare would rank "0.1.10" below "0.1.9"; the segment loop is what
+  // prevents that, so its presence is the assertion.
+  assert.match(clientSource, /for \(let index = 0; index < Math\.max\(left\.length, right\.length\); index \+= 1\)/);
+  assert.match(clientSource, /if \(left\.some\(\(part\) => !Number\.isFinite\(part\)\)/);
+});

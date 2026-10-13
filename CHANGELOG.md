@@ -2,6 +2,35 @@
 
 遵循 [语义化版本](https://semver.org/lang/zh-CN/)。**每次改动都必须升版本号**：DSH 的「检查更新」是拿已安装版本和最新版本做比对的，版本号不动就等于告诉它"已经是最新的"，界面不会给更新按钮。
 
+## 0.1.3
+
+**修复：设置背景后窗口拖不动（严重回归，由 0.1.1 引入）。**
+
+0.1.1 里为了防误拖，我在根节点上写了一条：
+
+```css
+body[data-dsh-mural],body[data-dsh-mural] #root{--dsw-alias-bg-base:transparent;-webkit-app-region:no-drag}
+```
+
+`-webkit-app-region` 是**会继承**的 Electron 窗口拖拽属性。官方外壳的拖拽区是这样划的：
+
+```css
+[data-windows-titlebar] .BynINW_frame:before{-webkit-app-region:drag;position:absolute;inset:0 0 auto}
+```
+
+我在 `body` 上加 `no-drag`，等于把整棵子树的拖拽能力全部关掉——顶部标题栏因此按住拖不动。已删除该声明；Mural 的图层本来就是 `pointer-events:none` 且 `z-index:0`，位于外壳内容之下，根本不需要这条。
+
+**新增：面板内的「检查更新」。**
+
+DSH 自带的检查更新走 npm registry 解析最新版本，而本插件是 git spec 安装（未发布时 registry 里也没有它），所以它看不到新提交——这正是 0.1.1 装上后检测不到 0.1.2 的原因。现在面板自己读仓库里的 `package.json`：
+
+- 标题旁显示当前版本号；
+- 底部常驻「版本 x.y.z · 状态」+「检查更新」按钮，结果显示在面板内；
+- 发现新版时给出**可复制的重装命令**（`dsh plugin --profile desktop add github:Songgexnl/dsh-background-mural`）；
+- 结果缓存 6 小时，避免反复请求；版本号无法比较时（如预发布格式）如实报「无法比较」，不会假装已是最新。
+
+它**不会**自己重装——客户端没有权限跑 pnpm，假装能装只会更糟。
+
 ## 0.1.2
 
 **修复：面板在新版设置页里没有背景，文字直接压在壁纸上。**

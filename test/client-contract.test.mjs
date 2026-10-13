@@ -86,3 +86,32 @@ test("compareVersions compares per segment, not as a string", () => {
   assert.match(clientSource, /for \(let index = 0; index < Math\.max\(left\.length, right\.length\); index \+= 1\)/);
   assert.match(clientSource, /if \(left\.some\(\(part\) => !Number\.isFinite\(part\)\)/);
 });
+
+test("the repainted surfaces are the shell's own tokens", () => {
+  // Every region the plugin recolors must be a token the official sheet actually
+  // paints; an invented token silently does nothing and the region stays opaque
+  // (or transparent), which is how this plugin already shipped one broken build.
+  const table = /const SURFACE_TOKENS = \[([\s\S]*?)\];/.exec(clientSource);
+  assert.notEqual(table, null, "client.js must declare SURFACE_TOKENS");
+  const tokens = [...table[1].matchAll(/"(--dsw-[a-z-]+)"/g)].map((match) => match[1]);
+  assert.deepEqual(tokens.sort(), [
+    "--dsw-specific-bubble",
+    "--dsw-specific-bubble-highlight",
+    "--dsw-specific-input-major",
+    "--dsw-specific-menu",
+    "--dsw-specific-sidebar-fill"
+  ]);
+  // The hover variants are derived, never copied from a hard-coded color.
+  assert.match(clientSource, /mixColor\(base, solidTarget, amount\)/);
+  assert.match(clientSource, /mixColor\(panel, solidTarget, 0\.25\)/);
+});
+
+test("an unsupported runtime stops the renderer before it paints", () => {
+  // The guard has to run before renderer.start(); otherwise the tokens are
+  // already repainted by the time the verdict arrives.
+  const guard = clientSource.indexOf("body.runtime.supported === false");
+  assert.notEqual(guard, -1, "the runtime verdict must gate the renderer");
+  const start = clientSource.indexOf("renderer.start();", guard);
+  assert.ok(start > guard, "renderer.start() must come after the runtime check");
+  assert.match(clientSource, /dshMuralUnsupported/);
+});

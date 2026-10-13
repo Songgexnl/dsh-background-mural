@@ -2,6 +2,29 @@
 
 遵循 [语义化版本](https://semver.org/lang/zh-CN/)。**每次改动都必须升版本号**：DSH 的「检查更新」是拿已安装版本和最新版本做比对的，版本号不动就等于告诉它"已经是最新的"，界面不会给更新按钮。
 
+## 0.1.4
+
+**新增：整套界面表面处理（侧边栏、输入栏、气泡、弹出面板）。**
+
+背景透出来之后，外壳自己的面板就悬在照片上了。这次把各区域的底色统一接管，参考了 [dsh-deep-whale](https://github.com/Small-tailqwq/dsh-deep-whale) 的处理范围（它做的是左右侧栏、输入栏、logo、新会话按钮），但实现是从官方样式表里读出来的 token，没有参考它的代码：
+
+| 区域 | 官方 token（我读出来的） |
+| --- | --- |
+| 侧边栏 | `.BynINW_sidebarCol{background:var(--dsw-specific-sidebar-fill)}` |
+| 输入栏 | `.RlGAzG_card{background:var(--dsw-specific-input-major)}` |
+| 消息气泡 | `.cJsG2q_bubble{background:var(--dsw-specific-bubble)}` |
+| 弹出面板 | `--dsw-specific-menu` + `backdrop-filter:var(--dsw-menu-backdrop-filter)` |
+
+做法是：读回每个 token 在当前配色下的真实值，用同样的颜色以更低透明度写回去，于是浅色/深色都自动正确，不用硬编码任何颜色。新增两个滑杆——「界面底色」「界面磨砂」——同时作用于上述所有区域。悬停态（`--dsw-alias-interactive-bg-hover*`、`bg-layer-2/3`）也按官方做法从自身基色重新混出来，否则鼠标一移上去半透明的面板会突然变回不透明。
+
+**修复一个会导致底色越来越透的缺陷。**
+
+`applySurface` 每重绘一次都会重新读 token，而读回的是**我自己写进去的值**，于是 alpha 被反复相乘、界面会逐次变淡。现在每个 token 的原值只在首次重绘前快照一次。
+
+**新增：运行时版本声明与自动降级。**
+
+`package.json` 现在声明 `dsh.engines.dsh: ">=0.1.1-rc.1 <0.3.0-0"`。host 半区读取真实 DSH 版本并与该范围比对：不在范围内时**不再重绘任何 token**，改为在面板上说明原因，保住原生界面。这个思路来自参考项目的经验——DSH 升级后皮肤挡住输入框一类的控件是真实风险，而这个插件已经因为一次类似原因让窗口拖不动了。
+
 ## 0.1.3
 
 **修复：设置背景后窗口拖不动（严重回归，由 0.1.1 引入）。**

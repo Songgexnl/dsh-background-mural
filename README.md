@@ -116,7 +116,9 @@ Removing the plugin only removes the loader row. **Your uploads are kept** in `<
 | Background blur | 0–60 px, applied to the media, not to the interface |
 | Opacity | 0–100, media transparency |
 | Edge vignette | Soft darkening at the top and bottom edges |
-| Sidebar fill | How much of the sidebar's own fill is kept, 0 = fully transparent (see "How the wallpaper actually shows through") |
+| Chrome opacity | How much of each region's own fill survives (sidebar, composer, bubbles, panels), 0 = fully transparent |
+| Chrome frosted blur | Frosts those regions, 0–40 px; more blur means clearer text |
+| Extra dim in light theme | Adds an extra scrim only while the light theme is active, 0–40 |
 | Playback | Loop / Play once (parks on the last frame) / First frame only |
 | Sound on | Muted by default; browsers may require a click before audio starts |
 | Volume | 0–100 |
@@ -161,11 +163,11 @@ nothing at all". Worse, `--dsw-alias-bg-base` is declared *on* `body`, so an
 element-only rule loses to that declaration.
 
 Mural therefore works at the **design-token level**, the same way community skins
-do: `--dsw-alias-bg-base` is set to transparent so the wallpaper shows, and
-`--dsw-specific-sidebar-fill` is repainted from the live theme color at a low
-alpha (the "Sidebar fill" slider, 0 = fully transparent). Both tokens are in the
-official `--dsw-*` registry (278 tokens, sourced from the shipped frontend CSS),
-so this stays on a supported surface instead of guessing internal class names.
+do: `--dsw-alias-bg-base` is set to transparent so the wallpaper shows, and each
+region's fill token is repainted from the live palette at a low alpha (see "How the
+chrome regions are handled"). Every one of them is in the official `--dsw-*`
+registry (278 tokens, sourced from the shipped frontend CSS), so this stays on a
+supported surface instead of guessing internal class names.
 
 Three supporting details:
 
@@ -178,6 +180,46 @@ Three supporting details:
 - Turning the master switch off **hands both tokens straight back**: "disabled"
   really does mean the GUI as it shipped, not "stopped painting but still
   transparent".
+
+### How the chrome regions are handled
+
+Once the wallpaper shows through, the shell's own panels sit on top of a photo, so
+Mural takes over each region's fill as well. Every anchor comes from the official
+stylesheet:
+
+| Region | Official token | Where the shell paints it |
+| --- | --- | --- |
+| Sidebar | `--dsw-specific-sidebar-fill` | `.BynINW_sidebarCol`, the sidebar component root |
+| Composer | `--dsw-specific-input-major` | `.RlGAzG_card` (the input card) |
+| Message bubble | `--dsw-specific-bubble` | `.cJsG2q_bubble` |
+| Pop-up panels | `--dsw-specific-menu` | several panels plus `backdrop-filter: var(--dsw-menu-backdrop-filter)` |
+
+The method is to **read each token's real value in the live palette and write the
+same color back at a lower alpha**. Light and dark both stay correct with no
+hard-coded colors and no reliance on internal class names. Two sliders drive all of
+them: **Chrome opacity** (how much of each fill survives) and **Chrome frosted
+blur** (0–40 px, the same `backdrop-filter` treatment the official sheet already
+gives translucent surfaces).
+
+Hover states are rebuilt too: `--dsw-alias-interactive-bg-hover*` and `bg-layer-2/3`
+are **mixed from the surface's own base**. Without that, moving the pointer over a
+translucent panel snaps it back to the stock opaque tone.
+
+> Each token's original value is snapshotted once, before the first repaint.
+> Re-reading it on every repaint would return this plugin's own translucent value,
+> multiply the alpha down each time, and fade the chrome out — a bug this plugin
+> shipped and now tests for.
+
+### Runtime version declaration
+
+`package.json` declares `dsh.engines.dsh: ">=0.1.1-rc.1 <0.3.0-0"`. The host half
+reads the real DSH version and compares: **outside that range it repaints nothing**
+and explains why in the panel, leaving the stock interface alone.
+
+This is deliberate caution. The plugin repaints the shell's chrome, so if a DSH
+upgrade moves those tokens the worst case is unreadable text or a covered control —
+and this plugin has already made the window undraggable once through a change of
+exactly that character. Refusing to paint beats guessing.
 
 ### Why uploads use a raw body instead of multipart
 

@@ -1,0 +1,6 @@
+# Mural bundle layer: mounting this package inserts exactly one row into the
+# DSH loader tree. The row id is namespaced so it can coexist with a standalone
+# install of the same plugin.
+- insert:
+    - id: background-mural
+      name: dsh-background-mural

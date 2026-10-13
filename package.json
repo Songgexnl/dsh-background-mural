@@ -1,6 +1,6 @@
 {
   "name": "dsh-background-mural",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": false,
   "description": "Mural — upload your own image or video and use it as the DSH GUI background, on both the desktop app and the web GUI.",
   "type": "module",
@@ -30,6 +30,7 @@
     "README.md",
     "README.zh.md",
     "INSTALL.zh.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "keywords": [

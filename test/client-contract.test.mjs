@@ -93,6 +93,22 @@ test("the sound switch reaches an already-mounted video", () => {
   assert.doesNotMatch(clientSource, /video\.autoplay = true/);
 });
 
+test("reset appearance restores the shipped defaults, and only those", () => {
+  const block = clientSource.match(/const APPEARANCE_DEFAULTS = \{[\s\S]*?\n    \};/);
+  assert.ok(block !== null, "APPEARANCE_DEFAULTS is missing");
+  // The two fields behind the "the picture never loaded" report: a blurred
+  // wallpaper and a fully opaque chrome both look like nothing rendered.
+  assert.match(block[0], /blur: 0,/);
+  assert.match(block[0], /opacity: 100,/);
+  // A reset is about the look, so the library, the wallpaper and the sound
+  // switch have to survive it.
+  assert.doesNotMatch(block[0], /activeId/);
+  assert.doesNotMatch(block[0], /sound: /);
+  assert.doesNotMatch(block[0], /volume: /);
+  // And the button has to actually call it.
+  assert.match(clientSource, /onClick: resetAppearance/);
+});
+
 test("the update notice reads the changelog and never renders remote markup", () => {
   assert.match(
     clientSource,

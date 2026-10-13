@@ -115,12 +115,13 @@ Removing the plugin only removes the loader row. **Your uploads are kept** in `<
 | Fit | Cover / Contain / Stretch / Tile |
 | Focus X, Focus Y | Cover and contain only — which part of the frame survives the crop |
 | Dim | 0–90, a black scrim over the media so the chrome above stays readable |
-| Background blur | 0–60 px, applied to the media, not to the interface |
+| Background blur | 0–60 px, applied to the **media only**, never to the interface. Default 0; a high value smears the whole picture into flat colour, which is easy to mistake for "the image never loaded". For frosted chrome use "Chrome frosted blur" below |
 | Opacity | 0–100, media transparency |
 | Edge vignette | Soft darkening at the top and bottom edges |
 | Chrome opacity | How much of each region's own fill survives (sidebar, composer, bubbles, panels), 0 = fully transparent |
 | Chrome frosted blur | Frosts those regions, 0–40 px; more blur means clearer text |
 | Extra dim in light theme | Adds an extra scrim only while the light theme is active, 0–40 |
+| Reset appearance | Puts every appearance slider back to its factory value at once, leaving the library, the current wallpaper and the sound switch alone |
 | Playback | Loop / Play once (parks on the last frame) / First frame only |
 | Sound on | Muted by default. Playback always starts muted; if the browser blocks an unmuted start, the first click restores the sound in place. The switch, the volume and the playback mode all apply live |
 | Volume | 0–100 |

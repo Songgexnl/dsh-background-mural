@@ -109,6 +109,67 @@ test("reset appearance restores the shipped defaults, and only those", () => {
   assert.match(clientSource, /onClick: resetAppearance/);
 });
 
+test("the report probes who is painted over the wallpaper", () => {
+  // "The picture never shows up" needs an answer rather than a guess, so the
+  // report has to name both the box sitting above the mural layer and the
+  // element that handed the shell's own base fill back an opaque colour.
+  assert.match(clientSource, /function paintProbe\(/);
+  assert.match(clientSource, /elementFromPoint\(/);
+  assert.match(clientSource, /base carriers:/);
+  assert.match(clientSource, /paintProbe\(\s*typeof document/);
+  // The shell may re-declare the base fill inline on #root, and only an
+  // important stylesheet declaration beats an inline one.
+  assert.match(clientSource, /--dsw-alias-bg-base:transparent !important/);
+});
+
+test("the centre column fill is taken transparent so the wallpaper shows through", () => {
+  // The shell paints its main column from `--dsw-alias-bg-layer-1`; leaving it
+  // opaque is the "picture never shows up" report. It must be overridden after
+  // its own real value has been read, so the hover/raised blends stay correct.
+  assert.match(clientSource, /--dsw-alias-bg-layer-1", "transparent", "important"/);
+  // And handed back on teardown.
+  assert.match(clientSource, /"--dsw-alias-bg-layer-1",\s*\n\s*"--dsw-alias-bg-layer-2"/);
+});
+
+test("the raised layers follow the chrome-opacity slider", () => {
+  // Layer 2 is what the shell paints raised surfaces with — the very slab that
+  // hid the wallpaper — so leaving it at full opacity made the chrome-opacity
+  // slider a no-op on most of the page.
+  assert.match(clientSource, /\["--dsw-alias-bg-layer-2", 0\.05, true\]/);
+  assert.match(clientSource, /\["--dsw-alias-bg-layer-3", 0\.09, true\]/);
+});
+
+test("the paint probe measures by area, not by a single point", () => {
+  // The panel is always open when the report is copied and it covers the middle
+  // of the screen, so a single sample point only ever measures the panel.
+  assert.match(clientSource, /slabs \(>=50% viewport, document order\)/);
+});
+
+test("the shell frame is cleared by measurement, not only through its tokens", () => {
+  // The frame resolves a fill no token override reaches, so a plain rule covers
+  // the direct-child case from the first paint, and a measured pass clears the
+  // box itself wherever it sits.
+  assert.match(clientSource, /#root>\*\{background-color:transparent !important\}/);
+  assert.match(clientSource, /clearShellBackdrop\(\) \{/);
+  // Three gates: opaque fills only, most-of-the-viewport only, non-fixed only.
+  assert.match(clientSource, /style\.position === "fixed"/);
+  assert.match(clientSource, /rect\.width \* rect\.height < area \* 0\.7/);
+  assert.match(clientSource, /background-color", "transparent", "important"/);
+  // The cleared fills are remembered, and handed back on teardown.
+  assert.match(clientSource, /this\.cleared\.set\(candidate/);
+  assert.match(clientSource, /this\.cleared\.clear\(\)/);
+});
+
+test("the shell frame fill is overridden on every box via a wildcard important rule", () => {
+  // The frame element re-declares --dsw-alias-bg-layer-1 for itself on a hashed
+  // class name, so a rule scoped to #root cannot reach it; only a wildcard
+  // important declaration beats a class-scoped one.
+  assert.match(clientSource, /\*\{--dsw-alias-bg-layer-1:transparent !important\}/);
+  // And the real layer-1 is snapshotted before that rule lands, so the hover and
+  // raised blends stay correct.
+  assert.match(clientSource, /this\.originalTokens\["--dsw-alias-bg-layer-1"\] = this\.token/);
+});
+
 test("the update notice reads the changelog and never renders remote markup", () => {
   assert.match(
     clientSource,

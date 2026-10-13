@@ -111,22 +111,26 @@ test("reset appearance restores the shipped defaults, and only those", () => {
 
 test("the report probes who is painted over the wallpaper", () => {
   // "The picture never shows up" needs an answer rather than a guess, so the
-  // report has to name both the box sitting above the mural layer and the
-  // element that handed the shell's own base fill back an opaque colour.
+  // report has to name the boxes sitting above the mural layer together with the
+  // fill each one resolves, so the first still-opaque one is visible in the
+  // read-out.
   assert.match(clientSource, /function paintProbe\(/);
   assert.match(clientSource, /elementFromPoint\(/);
-  assert.match(clientSource, /base carriers:/);
+  assert.match(clientSource, /slabs \(>=50% viewport, document order\):/);
   assert.match(clientSource, /paintProbe\(\s*typeof document/);
-  // The shell may re-declare the base fill inline on #root, and only an
-  // important stylesheet declaration beats an inline one.
-  assert.match(clientSource, /--dsw-alias-bg-base:transparent !important/);
+  // Each slab line carries its layer-1 value, which is what tells a cleared frame
+  // apart from one that is still solid.
+  assert.match(clientSource, /cover=\$\{String\(Math\.round\(share \* 100\)\)\}% l1=\$\{l1\}/);
 });
 
-test("the centre column fill is taken transparent so the wallpaper shows through", () => {
-  // The shell paints its main column from `--dsw-alias-bg-layer-1`; leaving it
-  // opaque is the "picture never shows up" report. It must be overridden after
-  // its own real value has been read, so the hover/raised blends stay correct.
-  assert.match(clientSource, /--dsw-alias-bg-layer-1", "transparent", "important"/);
+test("the centre column becomes a translucent fill, not a cleared token", () => {
+  // The shell paints its main column from `--dsw-alias-bg-layer-1`. Fully opaque
+  // hides the wallpaper; fully transparent leaves the text on bare picture. It is
+  // restated at a lowered, capped alpha instead, after its real value has been
+  // read so the hover and raised blends keep the correct tone.
+  assert.match(clientSource, /const layer1 = original\("--dsw-alias-bg-layer-1"\)/);
+  assert.match(clientSource, /clamp\(parsedLayer1\.a \* surfaces \* 0\.6, 0, 0\.6\)/);
+  assert.match(clientSource, /withAlpha\(layer1, alpha\)/);
   // And handed back on teardown.
   assert.match(clientSource, /"--dsw-alias-bg-layer-1",\s*\n\s*"--dsw-alias-bg-layer-2"/);
 });
@@ -153,21 +157,50 @@ test("the shell frame is cleared by measurement, not only through its tokens", (
   assert.match(clientSource, /clearShellBackdrop\(\) \{/);
   // Three gates: opaque fills only, most-of-the-viewport only, non-fixed only.
   assert.match(clientSource, /style\.position === "fixed"/);
-  assert.match(clientSource, /rect\.width \* rect\.height < area \* 0\.7/);
+  assert.match(clientSource, /width \* height < area \* 0\.25/);
   assert.match(clientSource, /background-color", "transparent", "important"/);
   // The cleared fills are remembered, and handed back on teardown.
   assert.match(clientSource, /this\.cleared\.set\(candidate/);
-  assert.match(clientSource, /this\.cleared\.clear\(\)/);
+  assert.match(clientSource, /restoreShellBackdrop\(\)/);
+  // The application backdrop is restated as a translucent frosted fill rather
+  // than left clear: the sidebar and the top bar carry no fill of their own and
+  // take theirs from that box, so emptying it left the whole chrome bare.
+  assert.match(clientSource, /this\.frameAlpha = Number\(clamp\(surfaces \* 0\.85, 0, 0\.85\)\.toFixed\(3\)\)/);
+  assert.match(clientSource, /isBackdrop = width \* height >= area \* 0\.95/);
+  // A box already repainted is revisited rather than skipped, so a slider move
+  // can still reach it once its fill has gone translucent.
+  assert.match(clientSource, /if \(entry === undefined && parsed === null\) continue;/);
+  // Three shapes get the glass: the application backdrop, the sidebar that hugs
+  // the left edge, and a centred sheet such as the settings panel. Page content
+  // is cleared instead, which is where the wallpaper belongs.
+  assert.match(clientSource, /isSidebar = rect\.left <= 4 && width < win\.innerWidth \* 0\.35 && height > win\.innerHeight \* 0\.5/);
+  assert.match(clientSource, /isSheet =/);
+  // And the chrome tokens do not keep a fill of their own, or two translucent
+  // layers would compound back into the opaque shell.
+  assert.match(clientSource, /\{ token: "--dsw-specific-sidebar-fill", keep: 0 \}/);
 });
 
-test("the shell frame fill is overridden on every box via a wildcard important rule", () => {
-  // The frame element re-declares --dsw-alias-bg-layer-1 for itself on a hashed
-  // class name, so a rule scoped to #root cannot reach it; only a wildcard
-  // important declaration beats a class-scoped one.
-  assert.match(clientSource, /\*\{--dsw-alias-bg-layer-1:transparent !important\}/);
-  // And the real layer-1 is snapshotted before that rule lands, so the hover and
+test("the chrome is never emptied by a tree-wide token override", () => {
+  // A wildcard rule and a global base override reached every box at once, so the
+  // sidebar, the composer and every popover lost their fill together and their
+  // text ended up on bare picture. Only the root and its outer frame are cleared
+  // now, and they are cleared as boxes rather than as a token.
+  assert.doesNotMatch(clientSource, /\*\{--dsw-alias-bg-layer-1:transparent/);
+  assert.doesNotMatch(clientSource, /--dsw-alias-bg-base:transparent !important\}/);
+  assert.match(clientSource, /#root>\*\{background-color:transparent !important\}/);
+  // The real layer-1 is still snapshotted before any override, so the hover and
   // raised blends stay correct.
   assert.match(clientSource, /this\.originalTokens\["--dsw-alias-bg-layer-1"\] = this\.token/);
+});
+
+test("the colour parser understands the hex values the shell actually declares", () => {
+  // Nearly every alias token DSH ships is hex. A parser that only handled
+  // `rgba()` returned null for all of them, and every caller reads null as "leave
+  // this one alone" — so the chrome was never repainted at all.
+  assert.match(clientSource, /\\da-f\]\{6\}/);
+  assert.match(clientSource, /const withAlpha = \(color, alpha\) => \{\s*const parsed = readColor\(color\);/);
+  // The content column is a translucent fill, not a cleared token.
+  assert.match(clientSource, /\* 0\.6, 0, 0\.6\)/);
 });
 
 test("the update notice reads the changelog and never renders remote markup", () => {

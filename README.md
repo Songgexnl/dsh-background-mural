@@ -118,8 +118,8 @@ Removing the plugin only removes the loader row. **Your uploads are kept** in `<
 | Background blur | 0–60 px, applied to the **media only**, never to the interface. Default 0; a high value smears the whole picture into flat colour, which is easy to mistake for "the image never loaded". For frosted chrome use "Chrome frosted blur" below |
 | Opacity | 0–100, media transparency |
 | Edge vignette | Soft darkening at the top and bottom edges |
-| Chrome opacity | How much of each region's own fill survives (sidebar, composer, bubbles, panels), 0 = fully transparent |
-| Chrome frosted blur | Frosts those regions, 0–40 px; more blur means clearer text |
+| Chrome opacity | How much of each region's own fill survives (sidebar, composer, bubbles, panels), 0 = fully transparent. At 100 the sidebar keeps 85%, the composer 90%, menus 95% and bubbles 75%; the conversation column has its own 60% ceiling, so the wallpaper always shows through |
+| Chrome frosted blur | Frosts the application backdrop — the glass the sidebar and top bar sit on — plus menus and panels, 0–40 px; more blur means clearer text |
 | Extra dim in light theme | Adds an extra scrim only while the light theme is active, 0–40 |
 | Reset appearance | Puts every appearance slider back to its factory value at once, leaving the library, the current wallpaper and the sound switch alone |
 | Playback | Loop / Play once (parks on the last frame) / First frame only |

@@ -56,7 +56,9 @@ test("the host half exports the cordis plugin surface", () => {
   assert.match(hostSource, /export const name\s*=/);
   assert.match(hostSource, /export const inject\s*=\s*\["webServer"\]/);
   assert.match(hostSource, /export function apply\(ctx\)/);
-  assert.match(hostSource, /background:transparent/);
+  // The transparent body background is declared by the browser half — the host
+  // half injects no CSS at all, so this assertion only ever failed here.
+  assert.match(clientSource, /body\[\$\{BODY_ATTR\}\]\{background:transparent !important\}/);
 });
 
 test("INSTALLED_VERSION tracks the package version", () => {
@@ -72,6 +74,37 @@ test("the update check reads the public manifest and never fakes an install", ()
   assert.match(clientSource, /raw\.githubusercontent\.com\/Songgexnl\/dsh-background-mural\/main\/package\.json/);
   // It must hand the user the command rather than claim to reinstall by itself.
   assert.match(clientSource, /dsh plugin --profile desktop add github:Songgexnl\/dsh-background-mural/);
+});
+
+test("the update notice reads the changelog and never renders remote markup", () => {
+  assert.match(
+    clientSource,
+    /raw\.githubusercontent\.com\/Songgexnl\/dsh-background-mural\/main\/CHANGELOG\.md/
+  );
+  assert.match(clientSource, /function parseChangelog\(/);
+  // The changelog arrives over the network, so it must only ever be written as
+  // text. One `innerHTML` here would turn release notes into an injection vector.
+  assert.doesNotMatch(clientSource, /innerHTML/);
+  // It reports and hands over a command; it must never try to install by itself,
+  // which would need shell access the client half does not have.
+  assert.doesNotMatch(clientSource, /child_process|execSync\(/);
+  // "Do not remind me again" is a stored preference, so a restart keeps it gone.
+  assert.match(clientSource, /set\("skipUpdateVersion", info\.latest, true\)/);
+});
+
+test("the skin override only names declared skins and keeps the sliders in charge", () => {
+  const table = /const SKIN_ADAPTERS = \[([\s\S]*?)\n    \];/.exec(clientSource);
+  assert.notEqual(table, null, "client.js must declare SKIN_ADAPTERS");
+  // Without the body marker the adapter is dead code: nothing to detect.
+  assert.match(table[1], /marker:\s*"data-dsh-maid-atelier"/);
+  // The sheet is scoped by this plugin's own marker as well as the skin's, so
+  // switching the wallpaper off retracts it and the skin returns to stock.
+  assert.match(clientSource, /const scope = `body\[\$\{BODY_ATTR\}\]\[\$\{adapter\.marker\}\]`/);
+  // What steps aside is the fill, handed to the value the plugin already computes
+  // for the sidebar. A hard-coded skin color would silently ignore the chrome
+  // sliders and break the light/dark split.
+  assert.match(clientSource, /background:var\(--dsw-specific-sidebar-fill\) !important/);
+  assert.doesNotMatch(clientSource, /background:#0a173b/);
 });
 
 test("no blanket -webkit-app-region:no-drag on the shell root", () => {

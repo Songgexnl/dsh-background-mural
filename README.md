@@ -9,6 +9,8 @@ Put your own background behind the whole DSH interface: **upload an image or a v
 - **Video that actually plays.** The host half implements HTTP Range (206) streaming, so clips loop, seek, and never need to be downloaded whole.
 - **Desktop + web, one code path.** Both halves speak plain same-origin HTTP and touch no Node APIs, so there is no Electron-only branch.
 - **Off means off.** The master switch stops painting and stops every media request; unloading the plugin restores the shell's DOM exactly.
+- **Coexists with skin plugins.** A small "skin steps aside" table lets a skin that hard-codes its own full-screen fills (such as Maid Atelier) keep its borders, ornaments and character art while the wallpaper takes the backdrop seat.
+- **Tells you when a newer build exists.** One quiet repository read after mounting, then a bottom-right card: how many versions behind, per-version notes, and a one-click note to hand the upgrade to the DSH agent.
 
 ---
 
@@ -123,6 +125,7 @@ Removing the plugin only removes the loader row. **Your uploads are kept** in `<
 | Sound on | Muted by default; browsers may require a click before audio starts |
 | Volume | 0–100 |
 | Pause while hidden | Pauses video when the window is backgrounded |
+| Check for new versions | On by default. One quiet repository read after mounting (cached for 6 hours); a newer build shows a bottom-right card. Off also stops the panel's automatic check — the manual button still works |
 
 ### Diagnostics
 
@@ -210,6 +213,39 @@ translucent panel snaps it back to the stock opaque tone.
 > multiply the alpha down each time, and fade the chrome out — a bug this plugin
 > shipped and now tests for.
 
+### Coexisting with skin plugins
+
+The token repaint above **does nothing against a skin**, because a skin does not
+read tokens — it hard-codes the fill on the element. Maid Atelier
+([dsh-deep-whale](https://github.com/Small-tailqwq/dsh-deep-whale)) is the worked
+example:
+
+| Region | What the skin writes |
+| --- | --- |
+| Sidebar | `[class*='sidebarCol']{background:#0a173b}`, with a three-layer gradient inside (`rgba(16,36,86,.97)` upward) |
+| Sidebar plate | `[class*='logoRow']`, equally opaque |
+| Conversation column | `[data-skin-chrome='character-stage']`, filled with one opaque "palace" illustration |
+
+Add that the skin mounts **later** than this plugin (later in the DOM means painted
+on top) and the result is a perfectly healthy panel with **no wallpaper at all** —
+indistinguishable from "the plugin does nothing".
+
+Mural's answer is to let only the **fill** step aside: borders, shadows, ornaments
+and character art all stay, and the fill becomes `var(--dsw-specific-sidebar-fill)` —
+the very value this plugin already computes. So it is not "made transparent", it is
+**handed to the same slider**, which keeps light and dark correct:
+
+```css
+body[data-dsh-mural][data-dsh-maid-atelier] [class*='sidebarCol']{background:var(--dsw-specific-sidebar-fill) !important}
+```
+
+The conversation column's illustration is dropped outright, handing that seat back to
+the wallpaper. The table is data-driven (`SKIN_ADAPTERS` in `lib/client.js`); another
+shell-painting skin is one more entry. Every rule is scoped by `data-dsh-mural` *and*
+the skin's own marker, so **switching the wallpaper off, or halting because the DSH
+version is unsupported, retracts the sheet and the skin returns to stock**. The
+diagnostics row reports which skin was detected and whether it stepped aside.
+
 ### Runtime version declaration
 
 `package.json` declares `dsh.engines.dsh: ">=0.1.1-rc.1 <0.3.0-0"`. The host half
@@ -220,6 +256,27 @@ This is deliberate caution. The plugin repaints the shell's chrome, so if a DSH
 upgrade moves those tokens the worst case is unreadable text or a covered control —
 and this plugin has already made the window undraggable once through a change of
 exactly that character. Refusing to paint beats guessing.
+
+### New-version notice
+
+A git-installed package is invisible to DSH's own plugin manager and `dsh plugin add`
+never upgrades anything by itself. So 2.5 seconds after mounting, the client half reads
+the repository once (`package.json` plus `CHANGELOG.md`, cached for six hours) and,
+when a newer build exists, shows a card in the bottom-right corner:
+
+- the version comparison and **how many versions behind** (counted from the changelog)
+- expandable per-version notes
+- **Copy for the agent**: repository, versions, reinstall command and the notes, ready
+  to paste back into DSH. The plugin deliberately does not run the install itself —
+  the client half has no shell access, and adding a Node watcher to get one is not
+  worth it
+- **Do not remind me again**, which skips only that version (`skipUpdateVersion`)
+- **Open the release page**
+
+The card is plain DOM and does not live in the settings slot: someone who never opened
+Settings should still see it. Every string that arrives over the network is written with
+`textContent` — release notes are remote content and must never be parsed as markup.
+Turning **Check for new versions** off silences the card and the panel's automatic check.
 
 ### Why uploads use a raw body instead of multipart
 
@@ -262,6 +319,8 @@ Manual checklist:
 - [ ] Turn the master switch off → media disappears and no `/media/` request is made
 - [ ] Reload the page → the background is back with no flash of the stock shell
 - [ ] Delete the active item → the background clears instead of going black
+- [ ] With Maid Atelier enabled → the wallpaper reaches the sidebar and the conversation column, and the skin's borders, ornaments and character art are still there
+- [ ] With a newer build published → the bottom-right card appears; "Do not remind me again" keeps it gone after a restart
 - [ ] Desktop app and browser behave the same
 
 ---
@@ -279,7 +338,8 @@ Manual checklist:
 - No animated background formats beyond GIF, which the browser plays natively.
 - No server-side transcoding: codecs the browser cannot decode (some HEVC/ProRes) cannot be video backgrounds. The diagnostics panel reports what is supported.
 - Very large videos stream to disk, but the library capacity cap is still a hard limit.
-- If a skin plugin also paints a background, whichever layer mounts later wins; Mural owns only its own layer and does not take over skin palettes.
+- Skin support is **declared per known skin** (Maid Atelier today). An unknown skin that hard-codes full-screen fills still hides the wallpaper; the diagnostics row names the detected skin, and adding its selectors to `SKIN_ADAPTERS` is the fix.
+- What steps aside is the **fill**, not the palette: text colors a skin sets for the sidebar and top bar still come from the skin, so contrast in those regions is the skin's call.
 
 ## Roadmap
 

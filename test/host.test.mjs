@@ -131,6 +131,19 @@ test("chrome surfaces default to the shell's own fills plus frost", () => {
   assert.equal(defaults.dim, 30);
 });
 
+test("the update check is on by default and remembers a dismissed version", () => {
+  const defaults = normalizeSettings({});
+  assert.equal(defaults.autoCheckUpdate, true);
+  assert.equal(defaults.skipUpdateVersion, "");
+  const tuned = normalizeSettings({ autoCheckUpdate: false, skipUpdateVersion: "0.2.0" });
+  assert.equal(tuned.autoCheckUpdate, false);
+  assert.equal(tuned.skipUpdateVersion, "0.2.0");
+  // A wrong type must not reach the record, or the comparison against the live
+  // manifest would compare a number to a version string.
+  assert.equal(normalizeSettings({ skipUpdateVersion: 7 }).skipUpdateVersion, "");
+  assert.equal(normalizeSettings({ autoCheckUpdate: "no" }).autoCheckUpdate, true);
+});
+
 test("mergeSettings only accepts known keys", () => {
   const merged = mergeSettings({ dim: 10 }, { dim: 55, evil: "x", activeId: "abc" });
   assert.equal(merged.dim, 55);

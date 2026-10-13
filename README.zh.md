@@ -126,6 +126,7 @@ dsh plugin --profile web remove dsh-background-mural
 | 背景模糊 | 0–60 px，作用在画面上而不是界面上 |
 | 不透明度 | 0–100，画面整体的透明度 |
 | 边缘暗角 | 上下边缘淡淡压暗，让顶部工具条和底部输入框更清楚 |
+| 侧栏底色 | 侧边栏那层底色还剩多少，0 = 完全透明（见下方「背景是怎么透出来的」） |
 | 播放方式 | 循环播放 / 播放一次（停在最后一帧）/ 只显示首帧 |
 | 开启声音 | 默认静音。浏览器可能要求先点过页面才允许有声播放 |
 | 音量 | 0–100 |
@@ -151,6 +152,28 @@ lib/client.js      浏览器半区：背景图层 + 设置面板（单文件，�
 - **host 半区**只依赖 Node 内置模块。它注册 6 条路由，`content-length` 与累计字节双重限流的上传，写盘走「临时文件 + 原子改名」，任何路由注册失败都只记日志、绝不抛异常——插件坏掉不能把整个 GUI 拖下水。
 - **浏览器半区**是纯 DOM 渲染层 + 一个 React 设置卡片。图层在 `<body>` 的第一个子节点，`z-index:0`、`pointer-events:none`，只加一条让外壳背景透明的样式，并且这条样式绑定在 `data-dsh-mural` 属性上——卸载即完全还原。
 - **两侧通过同源 HTTP 说话**，所以桌面版和 Web 版行为一致：没有 `file://` 特例，没有 Electron IPC。
+
+### 背景是怎么透出来的（关键实现）
+
+这一条是踩过坑才写下来的，也是最容易做错的地方。
+
+官方外壳**自己就在画不透明背景**。它的 CSS 是这样的：
+
+```css
+.BynINW_frame      { background: var(--dsw-alias-bg-base); ... }
+.BynINW_sidebarCol { background: var(--dsw-specific-sidebar-fill); ... }
+[data-windows-titlebar] .BynINW_centerCol { background: var(--dsw-alias-bg-base); ... }
+```
+
+也就是说，不管你往 body 后面塞什么图层，只要这两个 token 还是实色，画面就永远被外壳盖住——**看上去就是"插件完全没生效"**。而且 `--dsw-alias-bg-base` 是声明在 `body` 上的，只写元素选择器会被 body 上的声明压回去。
+
+所以 Mural 走的是**设计 token 级**的做法，和社区皮肤同一套路数：把 `--dsw-alias-bg-base` 置为透明让画面透出来，再把 `--dsw-specific-sidebar-fill` 按主题色重绘成一个低透明度的面板色（滑杆「侧栏底色」控制，0 = 全透明）。这两个 token 都在官方 `--dsw-*` token 注册表里（共 278 个，来源就是官方前端 dist CSS），所以这算走受支持的接口，而不是去猜内部 class 名。
+
+三个配套细节：
+
+- **body 的 `background` 必须用内联样式覆盖**，因为它是外壳启动时内联写上去的；卸载时按原值还原。
+- 图层是 `<body>` 的第一个子节点，`position: fixed` + `z-index: 0` + `pointer-events: none`。已经定位的外壳 frame（`z-index: auto`）按绘制顺序排在它上面，所以界面内容不会被挡住；同时它又高于 html/body 的底层背景，因此透明之后画面正好从中间露出来。
+- 关掉总开关会**把两个 token 原样还回去**，"关闭"是真的回到出厂外观，不是"停画但仍透明"。
 
 ### 为什么上传用裸 body 而不是 multipart
 

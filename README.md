@@ -116,6 +116,7 @@ Removing the plugin only removes the loader row. **Your uploads are kept** in `<
 | Background blur | 0–60 px, applied to the media, not to the interface |
 | Opacity | 0–100, media transparency |
 | Edge vignette | Soft darkening at the top and bottom edges |
+| Sidebar fill | How much of the sidebar's own fill is kept, 0 = fully transparent (see "How the wallpaper actually shows through") |
 | Playback | Loop / Play once (parks on the last frame) / First frame only |
 | Sound on | Muted by default; browsers may require a click before audio starts |
 | Volume | 0–100 |
@@ -141,6 +142,42 @@ lib/client.js      browser half: background layers + settings panel (one file, n
 - **Host half** uses Node built-ins only. It registers six routes, bounds uploads by both `content-length` and counted bytes, writes through temp-file-plus-rename, and logs rather than throws on any route failure — a broken plugin must not take the GUI down at boot.
 - **Browser half** is a pure-DOM renderer plus one React settings card. The layers are the first child of `<body>`, `z-index: 0`, `pointer-events: none`, and are accompanied by exactly one stylesheet rule that makes the shell background transparent. That rule is scoped to `data-dsh-mural`, so unloading restores everything.
 - **The two halves talk over same-origin HTTP**, which is why desktop and web behave identically: no `file://` special case, no Electron IPC.
+
+### How the wallpaper actually shows through
+
+This is the part that is easy to get wrong, so it is written down.
+
+**The official shell paints its own opaque background.** Its CSS reads:
+
+```css
+.BynINW_frame      { background: var(--dsw-alias-bg-base); ... }
+.BynINW_sidebarCol { background: var(--dsw-specific-sidebar-fill); ... }
+[data-windows-titlebar] .BynINW_centerCol { background: var(--dsw-alias-bg-base); ... }
+```
+
+So no matter what you append behind the body, as long as those tokens hold solid
+colors the wallpaper is covered — which reads to the user as "the plugin does
+nothing at all". Worse, `--dsw-alias-bg-base` is declared *on* `body`, so an
+element-only rule loses to that declaration.
+
+Mural therefore works at the **design-token level**, the same way community skins
+do: `--dsw-alias-bg-base` is set to transparent so the wallpaper shows, and
+`--dsw-specific-sidebar-fill` is repainted from the live theme color at a low
+alpha (the "Sidebar fill" slider, 0 = fully transparent). Both tokens are in the
+official `--dsw-*` registry (278 tokens, sourced from the shipped frontend CSS),
+so this stays on a supported surface instead of guessing internal class names.
+
+Three supporting details:
+
+- `body`'s `background` must be overridden **inline**, because the shell sets it
+  inline at boot; teardown restores the previous value verbatim.
+- The layers are the first child of `<body>`, `position: fixed`, `z-index: 0`,
+  `pointer-events: none`. The already-positioned shell frame (`z-index: auto`)
+  paints after them, so the interface is never covered — while the layers still
+  sit above the html/body backdrop, which is where the wallpaper needs to be.
+- Turning the master switch off **hands both tokens straight back**: "disabled"
+  really does mean the GUI as it shipped, not "stopped painting but still
+  transparent".
 
 ### Why uploads use a raw body instead of multipart
 

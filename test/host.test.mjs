@@ -104,6 +104,7 @@ test("normalizeSettings clamps and repairs every field", () => {
     opacity: "42",
     focusX: 101,
     volume: 250,
+    sidebarOpacity: 999,
     sound: "yes"
   });
   assert.equal(normalized.enabled, false);
@@ -115,7 +116,15 @@ test("normalizeSettings clamps and repairs every field", () => {
   assert.equal(normalized.opacity, 42);
   assert.equal(normalized.focusX, 100);
   assert.equal(normalized.volume, 100);
+  assert.equal(normalized.sidebarOpacity, 100);
   assert.equal(normalized.sound, false);
+});
+
+test("the sidebar fill defaults to a visible panel", () => {
+  const defaults = normalizeSettings({});
+  assert.equal(defaults.sidebarOpacity, 42);
+  assert.equal(defaults.enabled, true);
+  assert.equal(defaults.dim, 30);
 });
 
 test("mergeSettings only accepts known keys", () => {

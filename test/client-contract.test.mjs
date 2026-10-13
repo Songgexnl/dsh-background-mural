@@ -76,6 +76,23 @@ test("the update check reads the public manifest and never fakes an install", ()
   assert.match(clientSource, /dsh plugin --profile desktop add github:Songgexnl\/dsh-background-mural/);
 });
 
+test("the sound switch reaches an already-mounted video", () => {
+  // The element is rebuilt only when the item changes, so the switch has to be
+  // re-applied on every sync — reading it once at build time is exactly what made
+  // "set as background, then turn the sound on" do nothing.
+  assert.match(
+    clientSource,
+    /if \(element\.muted !== shouldBeMuted && this\.autoplayBlocked !== true\) this\.startMedia\(\);/
+  );
+  // An unmuted autoplay is allowed to reject, and a rejected play paints nothing,
+  // so the muted retry and the gesture hand-off both have to be there.
+  assert.match(clientSource, /this\.autoplayBlocked = true;/);
+  assert.match(clientSource, /this\.unmuteOnGesture\(\);/);
+  assert.match(clientSource, /addEventListener\("pointerdown", resume/);
+  // And every start goes through the one function that knows about the policy.
+  assert.doesNotMatch(clientSource, /video\.autoplay = true/);
+});
+
 test("the update notice reads the changelog and never renders remote markup", () => {
   assert.match(
     clientSource,

@@ -122,7 +122,7 @@ Removing the plugin only removes the loader row. **Your uploads are kept** in `<
 | Chrome frosted blur | Frosts those regions, 0–40 px; more blur means clearer text |
 | Extra dim in light theme | Adds an extra scrim only while the light theme is active, 0–40 |
 | Playback | Loop / Play once (parks on the last frame) / First frame only |
-| Sound on | Muted by default; browsers may require a click before audio starts |
+| Sound on | Muted by default. Playback always starts muted; if the browser blocks an unmuted start, the first click restores the sound in place. The switch, the volume and the playback mode all apply live |
 | Volume | 0–100 |
 | Pause while hidden | Pauses video when the window is backgrounded |
 | Check for new versions | On by default. One quiet repository read after mounting (cached for 6 hours); a newer build shows a bottom-right card. Off also stops the panel's automatic check — the manual button still works |
@@ -320,6 +320,7 @@ Manual checklist:
 - [ ] Reload the page → the background is back with no flash of the stock shell
 - [ ] Delete the active item → the background clears instead of going black
 - [ ] With Maid Atelier enabled → the wallpaper reaches the sidebar and the conversation column, and the skin's borders, ornaments and character art are still there
+- [ ] A video background with "Sound on" → audio is audible; if the browser blocks the unmuted start, the first click restores it and the picture never stops
 - [ ] With a newer build published → the bottom-right card appears; "Do not remind me again" keeps it gone after a restart
 - [ ] Desktop app and browser behave the same
 
@@ -340,6 +341,8 @@ Manual checklist:
 - Very large videos stream to disk, but the library capacity cap is still a hard limit.
 - Skin support is **declared per known skin** (Maid Atelier today). An unknown skin that hard-codes full-screen fills still hides the wallpaper; the diagnostics row names the detected skin, and adding its selectors to `SKIN_ADAPTERS` is the fix.
 - What steps aside is the **fill**, not the palette: text colors a skin sets for the sidebar and top bar still come from the skin, so contrast in those regions is the skin's call.
+- A video background with sound is bound by the browser's **autoplay policy**, which the plugin does not fight. Playback always starts muted — an unmuted `play()` the browser rejects paints nothing at all, which reads as a black screen — and a refused unmuted start is restored in place on your first click. A clip with no audio track never has any: uploads are stored as-is, nothing is transcoded and no audio is dropped.
+- "First frame only" parks on a still, so nothing plays and there is no sound.
 
 ## Roadmap
 
